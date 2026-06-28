@@ -1,8 +1,459 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<meta http-equiv="refresh" content="0; url=memeraki_ar_wall_recommender.html">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans, system-ui, sans-serif); background: transparent; color: var(--text-primary, #1a1a1a); }
+
+  .app { max-width: 680px; margin: 0 auto; padding: 0.5rem 0 2rem; }
+
+  /* Header */
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 1rem; border-bottom: 0.5px solid var(--border, #e5e5e5); margin-bottom: 1.25rem; }
+  .logo { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
+  .logo span { color: #7c2d7e; }
+  .tagline { font-size: 12px; color: var(--text-muted, #888); }
+
+  /* Stage containers */
+  .stage { display: none; }
+  .stage.active { display: block; }
+
+  /* Intro stage */
+  .intro-hero { background: linear-gradient(135deg, #f8f4ff 0%, #fff5f0 100%); border: 0.5px solid var(--border, #e5e5e5); border-radius: 16px; padding: 2rem 1.5rem; text-align: center; margin-bottom: 1rem; }
+  .intro-icon { font-size: 48px; margin-bottom: 1rem; color: #7c2d7e; }
+  .intro-title { font-size: 22px; font-weight: 500; color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.3; }
+  .intro-sub { font-size: 14px; color: var(--text-secondary, #555); line-height: 1.6; max-width: 400px; margin: 0 auto 1.5rem; }
+  .btn-primary { background: #7c2d7e; color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; max-width: 320px; transition: background 0.15s; }
+  .btn-primary:hover { background: #5f1f61; }
+  .how-steps { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 1.25rem; }
+  .how-step { background: var(--surface-2, #fff); border: 0.5px solid var(--border, #e5e5e5); border-radius: 10px; padding: 12px 10px; text-align: center; }
+  .how-step-icon { font-size: 20px; margin-bottom: 6px; color: #7c2d7e; }
+  .how-step-text { font-size: 11px; color: var(--text-secondary, #555); line-height: 1.4; }
+
+  /* Camera stage */
+  .cam-wrap { position: relative; border-radius: 16px; overflow: hidden; background: #111; aspect-ratio: 4/3; width: 100%; margin-bottom: 1rem; }
+  #video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cam-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .cam-reticle { width: 72px; height: 72px; border: 2px solid rgba(255,255,255,0.9); border-radius: 50%; position: relative; }
+  .cam-reticle::before, .cam-reticle::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); }
+  .cam-reticle::before { width: 2px; height: 20px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  .cam-reticle::after { width: 20px; height: 2px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  .cam-hint { color: rgba(255,255,255,0.9); font-size: 13px; margin-top: 14px; text-align: center; text-shadow: 0 1px 4px rgba(0,0,0,0.5); padding: 0 1rem; }
+  .cam-tap-btn { width: 100%; background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border: 1.5px solid rgba(255,255,255,0.6); color: #fff; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+  .cam-tap-btn:hover { background: rgba(255,255,255,0.25); }
+  .cam-controls { display: flex; gap: 10px; }
+  .btn-ghost { flex: 1; background: var(--surface-1, #f5f5f5); border: 0.5px solid var(--border, #e5e5e5); color: var(--text-secondary, #555); padding: 12px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .fallback-note { font-size: 12px; color: var(--text-muted, #888); text-align: center; margin-top: 0.5rem; }
+
+  /* Colour swatch stage */
+  .swatch-card { border: 0.5px solid var(--border, #e5e5e5); border-radius: 16px; overflow: hidden; margin-bottom: 1rem; }
+  .swatch-top { height: 120px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .swatch-label { background: rgba(0,0,0,0.35); color: #fff; font-size: 13px; padding: 6px 14px; border-radius: 20px; backdrop-filter: blur(4px); }
+  .swatch-body { padding: 14px 16px; background: var(--surface-2, #fff); }
+  .swatch-row { display: flex; align-items: center; gap: 12px; }
+  .swatch-dot { width: 36px; height: 36px; border-radius: 50%; border: 0.5px solid var(--border, #e5e5e5); flex-shrink: 0; }
+  .swatch-info { flex: 1; }
+  .swatch-name { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+  .swatch-hex { font-size: 12px; color: var(--text-muted, #888); font-family: var(--font-mono, monospace); }
+  .swatch-mood { font-size: 12px; color: var(--text-secondary, #555); margin-top: 8px; line-height: 1.5; }
+  .btn-recommend { background: #7c2d7e; color: #fff; border: none; padding: 13px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%; margin-top: 12px; }
+  .btn-rescan { background: var(--surface-1, #f5f5f5); border: 0.5px solid var(--border); color: var(--text-secondary); padding: 10px 24px; border-radius: 8px; font-size: 13px; cursor: pointer; width: 100%; margin-top: 8px; }
+
+  /* Loading */
+  .loading-wrap { text-align: center; padding: 3rem 1rem; }
+  .spinner { width: 36px; height: 36px; border: 2px solid var(--border, #e5e5e5); border-top-color: #7c2d7e; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text-secondary); }
+  .loading-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  /* Results stage */
+  .results-header { margin-bottom: 1rem; }
+  .results-title { font-size: 18px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+  .results-sub { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .wall-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-1, #f5f5f5); border: 0.5px solid var(--border); border-radius: 20px; padding: 4px 12px 4px 6px; margin-bottom: 12px; }
+  .wall-pill-dot { width: 18px; height: 18px; border-radius: 50%; border: 0.5px solid var(--border); }
+  .wall-pill-text { font-size: 12px; color: var(--text-secondary); }
+  .art-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+  .art-card { background: var(--surface-2, #fff); border: 0.5px solid var(--border, #e5e5e5); border-radius: 12px; overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
+  .art-card:hover { border-color: #7c2d7e; }
+  .art-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface-1, #f5f5f5); }
+  .art-img-placeholder { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .art-info { padding: 10px 12px 12px; }
+  .art-form-badge { font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 4px; background: #f3e8ff; color: #5f1f61; display: inline-block; margin-bottom: 5px; }
+  .art-name { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 3px; line-height: 1.3; }
+  .art-artist { font-size: 11px; color: var(--text-muted, #888); margin-bottom: 6px; }
+  .art-why { font-size: 11px; color: var(--text-secondary, #555); line-height: 1.45; border-top: 0.5px solid var(--border, #e5e5e5); padding-top: 6px; margin-top: 2px; }
+  .art-price { font-size: 13px; font-weight: 500; color: #7c2d7e; margin-top: 6px; }
+  .art-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .btn-atc { background: #7c2d7e; color: #fff; border: none; padding: 7px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; }
+  .results-actions { display: flex; gap: 10px; margin-top: 0.5rem; }
+  .btn-secondary { flex: 1; background: var(--surface-1, #f5f5f5); border: 0.5px solid var(--border); color: var(--text-secondary); padding: 12px; border-radius: 8px; font-size: 13px; cursor: pointer; text-align: center; }
+  .ai-note { background: #f8f4ff; border: 0.5px solid #d8b4fe; border-radius: 10px; padding: 10px 14px; margin-bottom: 1rem; display: flex; gap: 10px; align-items: flex-start; }
+  .ai-note-icon { color: #7c2d7e; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .ai-note-text { font-size: 12px; color: #5f1f61; line-height: 1.5; }
+  canvas { display: none; }
+
+  /* Error */
+  .error-box { background: #fff5f5; border: 0.5px solid #fca5a5; border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 1rem; }
+  .error-text { font-size: 13px; color: #7f1d1d; margin-bottom: 10px; }
+</style>
 </head>
 <body>
+<div class="app">
+  <h2 class="sr-only">MeMeraki — Find art for your wall using your wall colour</h2>
+
+  <div class="header">
+    <div>
+      <div class="logo">Me<span>Meraki</span></div>
+      <div class="tagline">Art Advisory · Prototype</div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);text-align:right;">Wall Colour<br>Recommender</div>
+  </div>
+
+  <!-- Stage 1: Intro -->
+  <div class="stage active" id="stage-intro">
+    <div class="intro-hero">
+      <div class="intro-icon"><i class="ti ti-camera" aria-hidden="true"></i></div>
+      <div class="intro-title">Find art that fits your wall — not just your taste</div>
+      <div class="intro-sub">Point your camera at your wall. We'll read the colour and recommend Indian artworks that will actually look beautiful in your space.</div>
+      <button class="btn-primary" onclick="startCamera()">Scan my wall</button>
+    </div>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-icon"><i class="ti ti-camera" aria-hidden="true"></i></div>
+        <div class="how-step-text">Point camera at your wall & tap to capture</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon"><i class="ti ti-color-swatch" aria-hidden="true"></i></div>
+        <div class="how-step-text">AI reads your exact wall colour & tone</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon"><i class="ti ti-sparkles" aria-hidden="true"></i></div>
+        <div class="how-step-text">Get curated artworks matched to your room</div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;text-align:center;">
+      <button class="btn-ghost" style="max-width:240px;margin:0 auto;" onclick="showManualPicker()">Pick wall colour manually instead</button>
+    </div>
+  </div>
+
+  <!-- Stage 2: Camera -->
+  <div class="stage" id="stage-camera">
+    <div class="cam-wrap" id="cam-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div class="cam-overlay">
+        <div class="cam-reticle"></div>
+        <div class="cam-hint">Point at a plain section of your wall<br>then tap "Capture wall colour"</div>
+      </div>
+    </div>
+    <div class="error-box" id="cam-error" style="display:none;">
+      <div class="error-text">Camera access was denied or isn't available in this environment.</div>
+      <button class="btn-primary" onclick="showManualPicker()" style="max-width:200px;margin:0 auto;">Pick colour manually</button>
+    </div>
+    <div class="cam-controls">
+      <button class="btn-ghost" onclick="goTo('stage-intro')">← Back</button>
+      <button class="cam-tap-btn" onclick="captureFrame()">Capture wall colour</button>
+    </div>
+    <div class="fallback-note">Camera not working? <span style="color:#7c2d7e;cursor:pointer;text-decoration:underline;" onclick="showManualPicker()">Choose colour manually</span></div>
+  </div>
+
+  <!-- Stage 2b: Manual colour picker -->
+  <div class="stage" id="stage-manual">
+    <div style="border:0.5px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:1rem;">
+      <div style="font-size:16px;font-weight:500;margin-bottom:0.5rem;">Choose your wall colour</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:1rem;">Pick the shade closest to your wall</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:1rem;" id="colour-swatches"></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Or enter a hex code</div>
+      <div style="display:flex;gap:8px;">
+        <input type="color" id="hex-picker" value="#f5f0e8" style="width:44px;height:36px;border:0.5px solid var(--border);border-radius:6px;cursor:pointer;padding:2px;">
+        <input type="text" id="hex-input" value="#f5f0e8" placeholder="#f5f0e8" style="flex:1;padding:8px 12px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font-mono,monospace);">
+        <button class="btn-primary" style="max-width:100px;" onclick="useManualColour()">Use this</button>
+      </div>
+    </div>
+    <button class="btn-ghost" onclick="goTo('stage-intro')">← Back</button>
+  </div>
+
+  <!-- Stage 3: Colour confirmed -->
+  <div class="stage" id="stage-colour">
+    <div class="swatch-card">
+      <div class="swatch-top" id="swatch-preview"></div>
+      <div class="swatch-body">
+        <div class="swatch-row">
+          <div class="swatch-dot" id="swatch-dot"></div>
+          <div class="swatch-info">
+            <div class="swatch-name" id="swatch-name"></div>
+            <div class="swatch-hex" id="swatch-hex"></div>
+          </div>
+        </div>
+        <div class="swatch-mood" id="swatch-mood"></div>
+        <button class="btn-recommend" onclick="getRecommendations()">Find matching artworks →</button>
+        <button class="btn-rescan" onclick="goTo('stage-intro')">Try a different colour</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage 4: Loading -->
+  <div class="stage" id="stage-loading">
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-text">Curating artworks for your wall...</div>
+      <div class="loading-sub" id="loading-sub">Analysing colour harmony</div>
+    </div>
+  </div>
+
+  <!-- Stage 5: Results -->
+  <div class="stage" id="stage-results">
+    <div class="results-header">
+      <div class="results-title" id="results-title"></div>
+      <div class="wall-pill">
+        <div class="wall-pill-dot" id="results-pill-dot"></div>
+        <div class="wall-pill-text" id="results-pill-text"></div>
+      </div>
+      <div class="ai-note">
+        <i class="ti ti-sparkles ai-note-icon" aria-hidden="true"></i>
+        <div class="ai-note-text" id="ai-reasoning"></div>
+      </div>
+    </div>
+    <div class="art-grid" id="art-grid"></div>
+    <div class="results-actions">
+      <button class="btn-secondary" onclick="goTo('stage-intro')">Scan a different wall</button>
+      <button class="btn-secondary" onclick="sendPrompt('Tell me more about these art forms and which would suit my home best')">Ask art advisor ↗</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLOUR_PALETTE = [
+  { hex: '#f5f0e8', name: 'Warm ivory', mood: 'A classic warm white with golden undertones — the most common Indian home wall colour. Pairs beautifully with earthy folk art and rich jewel-toned paintings.', family: 'warm-neutral' },
+  { hex: '#e8ddd0', name: 'Sandy beige', mood: 'Soft and grounding. This warm neutral opens up a room for bold, vibrant Indian art — particularly Madhubani, Kalamkari, and Gond.', family: 'warm-neutral' },
+  { hex: '#d4c5b0', name: 'Warm taupe', mood: 'Sophisticated and earthy. Works well with natural pigment paintings — Warli, Pattachitra, and terracotta-toned works create a cohesive palette.', family: 'warm-neutral' },
+  { hex: '#f0ebe0', name: 'Cream', mood: 'Light and airy. Nearly any colour palette in Indian art will sing against this background — it is the most versatile wall tone for art buying.', family: 'warm-neutral' },
+  { hex: '#c8b89a', name: 'Light terracotta', mood: 'Warm and grounded. Pairs best with earthy Warli, Phad, and Rajasthani miniatures. Avoid very warm-toned art — the wall will compete.', family: 'terracotta' },
+  { hex: '#b5a090', name: 'Terracotta', mood: 'Rich and warm. Contrasts beautifully with cool-toned art — blue Pichwai, green Gond, and Kalamkari with indigo tones will pop.', family: 'terracotta' },
+  { hex: '#c8d8e8', name: 'Powder blue', mood: 'Calm and refreshing. Brings out the warmth in golden Tanjore, Pichwai, and Madhubani. A very elegant combination for modern Indian homes.', family: 'cool-blue' },
+  { hex: '#b0c4d4', name: 'Slate blue', mood: 'Cool and serene. Earthy folk art — Gond, Warli, Madhubani with dark outlines — will contrast beautifully and feel grounded.', family: 'cool-blue' },
+  { hex: '#9eb8c8', name: 'Steel blue', mood: 'Strong and modern. Bold, high-contrast art like Kalighat and Kalamkari will stand out well. Avoid art with blue-heavy palettes.', family: 'cool-blue' },
+  { hex: '#d4e0c8', name: 'Sage green', mood: 'Organic and calming. Natural-theme art — Gond forest paintings, floral Madhubani, botanical Kalamkari — will feel at home against this.', family: 'cool-green' },
+  { hex: '#b8ccb0', name: 'Muted green', mood: 'Earthy and natural. Works well with warm ochre and terracotta tones in Pichwai and Pattachitra. Feels grounded and connected to nature.', family: 'cool-green' },
+  { hex: '#e8d0d8', name: 'Blush pink', mood: 'Soft and feminine. Pairs beautifully with the rich reds and golds of Tanjore and Pichwai. Madhubani with bold pink tones will feel harmonious.', family: 'warm-pink' },
+  { hex: '#d0d0d0', name: 'Cool grey', mood: 'Minimal and contemporary. Creates dramatic contrast — bold Kalighat, high-contrast Gond, and monochrome Warli will feel gallery-like against this.', family: 'cool-grey' },
+  { hex: '#b8b8b8', name: 'Mid grey', mood: 'Modern and neutral. Any art form works, but Tanjore with gold leaf and Pichwai with rich blues will feel particularly luxurious.', family: 'cool-grey' },
+  { hex: '#2c2c2c', name: 'Charcoal', mood: 'Bold and dramatic. Dark walls call for gold-accented art — Tanjore, large Pichwai, and detailed Miniature paintings will glow against the dark background.', family: 'dark' },
+];
+
+const ARTWORKS = {
+  'warm-neutral': [
+    { name: 'Dancing Radha in Pichwai', form: 'Pichwai', artist: 'Naveen Soni, Nathdwara', price: '₹18,500', why: 'The rich blue and gold palette of Pichwai creates a warm contrast that elevates ivory and beige walls without clashing.', emoji: '🦚' },
+    { name: 'Forest of Gods — Gond', form: 'Gond Art', artist: 'Venkat Raman Singh Shyam', price: '₹14,200', why: 'Gond\'s deep earthy greens and warm ochres are perfectly in harmony with warm ivory walls — a natural pairing.', emoji: '🌿' },
+    { name: 'Lotus Pond — Madhubani', form: 'Madhubani', artist: 'Priti Karn, Mithila', price: '₹8,900', why: 'Bold black outlines with warm yellows and reds pop dramatically against ivory — a classic Indian art combination.', emoji: '🪷' },
+    { name: 'Sacred Kalpavriksha', form: 'Kalamkari', artist: 'Harinath N, Srikalahasti', price: '₹22,000', why: 'The natural indigo and tamarind tones of Kalamkari were literally made to hang on warm Indian home walls.', emoji: '🌳' },
+  ],
+  'terracotta': [
+    { name: 'Indigo Krishna — Pichwai', form: 'Pichwai', artist: 'Shehzaad Ali Sherani', price: '₹31,000', why: 'Cool indigo and white Pichwai tones contrast beautifully against terracotta — the warm-cool dialogue is stunning.', emoji: '🔵' },
+    { name: 'Tribal Hunt — Gond', form: 'Gond Art', artist: 'Gareeba Tekam, Bhopal', price: '₹11,500', why: 'Gond\'s cool greens and blacks provide the contrast terracotta walls need — earthy yet vivid.', emoji: '🏹' },
+    { name: 'River Goddess — Kalamkari', form: 'Kalamkari', artist: 'Siva Reddy, Machilipatnam', price: '₹16,800', why: 'Deep indigo and blue tones in Kalamkari sing against terracotta — complementary colours at their best.', emoji: '🌊' },
+    { name: 'Warli Wedding Procession', form: 'Warli', artist: 'Jivya Soma Mashe School', price: '₹9,200', why: 'White Warli on dark cloth against a terracotta wall creates a clean, gallery-worthy contrast.', emoji: '👰' },
+  ],
+  'cool-blue': [
+    { name: 'Shrinathji in Gold — Tanjore', form: 'Tanjore', artist: 'Mohan Prajapati, Thanjavur', price: '₹28,500', why: 'Gold leaf Tanjore glows warmly against cool blue — the contrast brings out the richness of both.', emoji: '✨' },
+    { name: 'Peacock Madhubani', form: 'Madhubani', artist: 'Sita Devi school, Bihar', price: '₹7,800', why: 'Warm saffron and red Madhubani pops against blue — the complementary colour contrast is immediately striking.', emoji: '🦚' },
+    { name: 'Golden Pichwai — Cows', form: 'Pichwai', artist: 'Naveen Soni, Nathdwara', price: '₹24,000', why: 'The warm golds and ochres of this Pichwai create a beautiful warm-cool dialogue with blue walls.', emoji: '🐄' },
+    { name: 'Ragamala Miniature', form: 'Miniature Paintings', artist: 'Mohan Prajapati, Jaipur', price: '₹19,500', why: 'Rich warm reds and golds in Mughal miniatures contrast powerfully with the coolness of blue-grey walls.', emoji: '🎨' },
+  ],
+  'cool-green': [
+    { name: 'Radha in the Lotus — Pichwai', form: 'Pichwai', artist: 'Shehzaad Ali Sherani', price: '₹26,000', why: 'The warm saffron and pink tones in Pichwai create a beautiful contrast with cool sage or muted green walls.', emoji: '🪷' },
+    { name: 'Dokra Horse — Bengal', form: 'Bengal Pattachitra', artist: 'Swarna Chitrakar', price: '₹8,400', why: 'Warm ochre and terracotta Pattachitra pops against cool green — a grounded, natural pairing.', emoji: '🐴' },
+    { name: 'Sacred Tree — Kalamkari', form: 'Kalamkari', artist: 'Harinath N, Srikalahasti', price: '₹18,500', why: 'The warm earthy tones of natural-dye Kalamkari complement sage walls — both feel connected to nature.', emoji: '🌲' },
+    { name: 'Sun God — Pattachitra', form: 'Bengal Pattachitra', artist: 'Manoranjan Chitrakar', price: '₹12,000', why: 'Bold warm reds and yellows of Pattachitra create dramatic contrast against the coolness of green walls.', emoji: '☀️' },
+  ],
+  'warm-pink': [
+    { name: 'Divine Couple — Tanjore', form: 'Tanjore', artist: 'Parimala Devi, Thanjavur', price: '₹32,000', why: 'The deep reds and gold of Tanjore harmonise with blush pink walls — both are warm and rich in tone.', emoji: '💛' },
+    { name: 'Radha Krishna — Madhubani', form: 'Madhubani', artist: 'Priti Karn, Mithila', price: '₹9,500', why: 'The romantic, warm tones of Madhubani florals feel right at home with blush pink walls.', emoji: '🌸' },
+    { name: 'Lotus Goddess — Pichwai', form: 'Pichwai', artist: 'Naveen Soni', price: '₹21,000', why: 'Deep blue Pichwai provides beautiful contrast against the softness of blush pink — the complementary balance is elegant.', emoji: '🔵' },
+    { name: 'Kerala Mural — Goddess', form: 'Kerala Mural', artist: 'Adarsh Appukkuttan', price: '₹17,500', why: 'The warm ochre and red Kerala mural palette harmonises naturally with warm pink tones.', emoji: '🎭' },
+  ],
+  'cool-grey': [
+    { name: 'Large Kalighat — Kali', form: 'Kalighat', artist: 'Uttam Chitrakar, Kolkata', price: '₹13,500', why: 'High-contrast Kalighat with bold black lines feels gallery-perfect against grey — a modern, contemporary pairing.', emoji: '⚡' },
+    { name: 'Gond Tiger — Forest', form: 'Gond Art', artist: 'Venkat Raman Singh Shyam', price: '₹16,000', why: 'The vivid colours of Gond art feel jewel-like against the neutrality of grey — every colour pops.', emoji: '🐯' },
+    { name: 'Gold Leaf Tanjore', form: 'Tanjore', artist: 'Mohan Prajapati', price: '₹38,000', why: 'Gold leaf Tanjore against a grey wall feels museum-quality — the warmth of gold against cool grey is timeless.', emoji: '🌟' },
+    { name: 'Lippan Mirror Work', form: 'Lippan Kaam', artist: 'Gujrat artisans collective', price: '₹11,000', why: 'The reflective mirror work of Lippan creates sparkle and warmth against cool grey walls — unexpected and beautiful.', emoji: '🪞' },
+  ],
+  'dark': [
+    { name: 'Large Golden Tanjore', form: 'Tanjore', artist: 'Parimala Devi, Thanjavur', price: '₹45,000', why: 'Gold leaf on dark walls is the ultimate luxury pairing — the painting glows like it is lit from within.', emoji: '✨' },
+    { name: 'Grand Pichwai — Night', form: 'Pichwai', artist: 'Shehzaad Ali Sherani', price: '₹52,000', why: 'Large Pichwai with rich blues and gold against a dark wall creates a dramatic, gallery-quality statement.', emoji: '🌙' },
+    { name: 'Mughal Miniature — Gold', form: 'Miniature Paintings', artist: 'Mohan Prajapati, Jaipur', price: '₹29,000', why: 'The intricate detail and warm gold of Mughal miniatures emerges dramatically from a dark background.', emoji: '🎨' },
+    { name: 'Kalighat — Bold Lines', form: 'Kalighat', artist: 'Uttam Chitrakar, Kolkata', price: '₹15,500', why: 'Bold, graphic Kalighat with its strong lines feels powerful against charcoal — modern and confident.', emoji: '🖤' },
+  ],
+};
+
+const REASONINGS = {
+  'warm-neutral': 'Your warm ivory or beige wall is the most versatile canvas for Indian art. I\'ve picked artworks with rich, bold palettes that will create beautiful contrast without clashing — from earthy Gond to jewel-toned Pichwai.',
+  'terracotta': 'Terracotta walls call for cool-toned contrast. I\'ve recommended artworks with indigo, deep blue, and green palettes — the warm-cool dialogue will make both your wall and the art look more beautiful together.',
+  'cool-blue': 'Cool blue or grey-blue walls pair beautifully with warm gold and saffron tones. I\'ve selected artworks with warm, rich palettes — Tanjore gold leaf and warm Madhubani will glow against your wall.',
+  'cool-green': 'Sage and muted green walls work best with warm earthy tones. I\'ve chosen artworks with ochre, terracotta, and warm red palettes that will feel connected to nature while providing beautiful contrast.',
+  'warm-pink': 'Blush pink walls have warmth and softness — the artworks I\'ve selected either harmonise with that warmth or provide beautiful cool contrast. All will feel at home in your space.',
+  'cool-grey': 'Grey walls are the most gallery-like backdrop in Indian homes. I\'ve chosen high-contrast, vivid artworks — Kalighat, Gond, and gold-leaf Tanjore — that will feel like curated museum pieces.',
+  'dark': 'Dark walls are the most dramatic backdrop for art. I\'ve selected only the most statement-worthy works — large gold-leaf Tanjore, grand Pichwai, and bold Kalighat — that will glow against the darkness.',
+};
+
+let detectedColour = null;
+let stream = null;
+
+function goTo(id) {
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function startCamera() {
+  goTo('stage-camera');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    document.getElementById('video').srcObject = stream;
+  } catch(e) {
+    document.getElementById('cam-error').style.display = 'block';
+    document.getElementById('cam-wrap').style.opacity = '0.3';
+  }
+}
+
+function captureFrame() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  if (!video.srcObject) { showManualPicker(); return; }
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const cx = Math.floor(canvas.width / 2);
+  const cy = Math.floor(canvas.height / 2);
+  const region = ctx.getImageData(cx - 20, cy - 20, 40, 40);
+  let r = 0, g = 0, b = 0;
+  for (let i = 0; i < region.data.length; i += 4) { r += region.data[i]; g += region.data[i+1]; b += region.data[i+2]; }
+  const px = region.data.length / 4;
+  r = Math.round(r / px); g = Math.round(g / px); b = Math.round(b / px);
+  const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  if (stream) { stream.getTracks().forEach(t => t.stop()); }
+  processColour(hex);
+}
+
+function showManualPicker() {
+  goTo('stage-manual');
+  const grid = document.getElementById('colour-swatches');
+  grid.innerHTML = '';
+  COLOUR_PALETTE.forEach(c => {
+    const div = document.createElement('div');
+    div.style.cssText = `background:${c.hex};border-radius:8px;aspect-ratio:1;cursor:pointer;border:2px solid transparent;transition:border-color 0.15s;`;
+    div.title = c.name;
+    div.onclick = () => {
+      document.querySelectorAll('#colour-swatches div').forEach(d => d.style.borderColor = 'transparent');
+      div.style.borderColor = '#7c2d7e';
+      document.getElementById('hex-picker').value = c.hex;
+      document.getElementById('hex-input').value = c.hex;
+    };
+    grid.appendChild(div);
+  });
+  const picker = document.getElementById('hex-picker');
+  const input = document.getElementById('hex-input');
+  picker.oninput = () => { input.value = picker.value; };
+  input.oninput = () => { if (/^#[0-9a-fA-F]{6}$/.test(input.value)) picker.value = input.value; };
+}
+
+function useManualColour() {
+  const hex = document.getElementById('hex-picker').value;
+  processColour(hex);
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+
+function getColourFamily(hex) {
+  const {r,g,b} = hexToRgb(hex);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  if (brightness < 80) return 'dark';
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  const sat = max === 0 ? 0 : (max - min) / max;
+  if (sat < 0.12) return brightness > 160 ? 'cool-grey' : 'cool-grey';
+  if (r > g && r > b) {
+    if (g > b * 1.2) return r > 180 ? 'warm-neutral' : 'terracotta';
+    return r > 180 ? 'warm-pink' : 'terracotta';
+  }
+  if (g > r && g > b) return 'cool-green';
+  if (b > r && b > g) return 'cool-blue';
+  if (r > 200 && g > 180 && b > 150) return 'warm-neutral';
+  return 'warm-neutral';
+}
+
+function findClosestPalette(hex) {
+  const {r,g,b} = hexToRgb(hex);
+  let closest = COLOUR_PALETTE[0], minDist = Infinity;
+  COLOUR_PALETTE.forEach(c => {
+    const {r:cr,g:cg,b:cb} = hexToRgb(c.hex);
+    const d = Math.sqrt((r-cr)**2 + (g-cg)**2 + (b-cb)**2);
+    if (d < minDist) { minDist = d; closest = c; }
+  });
+  return closest;
+}
+
+function processColour(hex) {
+  detectedColour = hex;
+  const palette = findClosestPalette(hex);
+  const preview = document.getElementById('swatch-preview');
+  preview.style.background = hex;
+  document.getElementById('swatch-dot').style.background = hex;
+  document.getElementById('swatch-name').textContent = palette.name;
+  document.getElementById('swatch-hex').textContent = hex.toUpperCase();
+  document.getElementById('swatch-mood').textContent = palette.mood;
+  goTo('stage-colour');
+}
+
+async function getRecommendations() {
+  goTo('stage-loading');
+  const palette = findClosestPalette(detectedColour);
+  const family = palette.family;
+  const loadingMsgs = ['Analysing colour harmony...', 'Matching art form palettes...', 'Curating your collection...'];
+  let i = 0;
+  const interval = setInterval(() => {
+    document.getElementById('loading-sub').textContent = loadingMsgs[i % loadingMsgs.length];
+    i++;
+  }, 900);
+  await new Promise(r => setTimeout(r, 2400));
+  clearInterval(interval);
+  showResults(family, palette);
+}
+
+function showResults(family, palette) {
+  const artworks = ARTWORKS[family] || ARTWORKS['warm-neutral'];
+  document.getElementById('results-title').textContent = `Artworks curated for your ${palette.name.toLowerCase()} wall`;
+  document.getElementById('results-pill-dot').style.background = detectedColour;
+  document.getElementById('results-pill-text').textContent = `${palette.name} · ${detectedColour.toUpperCase()}`;
+  document.getElementById('ai-reasoning').textContent = REASONINGS[family] || REASONINGS['warm-neutral'];
+  const grid = document.getElementById('art-grid');
+  grid.innerHTML = '';
+  artworks.forEach(art => {
+    const card = document.createElement('div');
+    card.className = 'art-card';
+    card.innerHTML = `
+      <div class="art-img-placeholder" style="background:var(--surface-1);">${art.emoji}</div>
+      <div class="art-info">
+        <span class="art-form-badge">${art.form}</span>
+        <div class="art-name">${art.name}</div>
+        <div class="art-artist">By ${art.artist}</div>
+        <div class="art-why">${art.why}</div>
+        <div class="art-footer">
+          <div class="art-price">${art.price}</div>
+          <button class="btn-atc" onclick="sendPrompt('Tell me more about ${art.name} — ${art.form} by ${art.artist}')">View artwork ↗</button>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+  goTo('stage-results');
+}
+</script>
 </body>
 </html>
